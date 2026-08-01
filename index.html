@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <title>Tornado Alley — Storm Chaser</title>
 <style>
   :root {
@@ -29,6 +32,37 @@
   }
 
   #gameCanvas { display: block; width: 100vw; height: 100vh; background: #0a0f1a; }
+
+  /* ===== ROTATE PROMPT (mobile portrait) ===== */
+  #rotateOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 24px;
+    background: radial-gradient(1200px 600px at 50% -10%, #172a4a 0%, var(--bg) 60%);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+  #rotateOverlay.show { display: flex; }
+  #rotateOverlay .rotate-icon {
+    font-size: 4.2rem;
+    margin-bottom: 20px;
+    animation: tiltWiggle 1.6s ease-in-out infinite;
+  }
+  #rotateOverlay h2 { font-size: 1.8rem; font-weight: 800; letter-spacing: 0.5px; margin-bottom: 12px; }
+  #rotateOverlay h2 span { color: var(--accent); }
+  #rotateOverlay p { font-size: 1rem; color: var(--text-dim); line-height: 1.7; max-width: 320px; margin-bottom: 28px; }
+  @keyframes tiltWiggle {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-90deg); }
+    50% { transform: rotate(-90deg); }
+    75% { transform: rotate(-90deg); }
+  }
 
   /* ===== HUD ===== */
   #hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
@@ -141,6 +175,13 @@
 
 <canvas id="gameCanvas"></canvas>
 <div class="flash" id="flash"></div>
+
+<!-- ===== ROTATE PROMPT (mobile portrait) ===== -->
+<div id="rotateOverlay">
+  <div class="rotate-icon">📱↻</div>
+  <h2>Turn Your Phone <span>Sideways</span></h2>
+  <p>Tornado Alley is best played in landscape mode. Please rotate your device 90° to start the chase. 🌪️</p>
+</div>
 
 <!-- ===== HUD ===== -->
 <div id="hud" class="hidden">
@@ -317,6 +358,27 @@ resize();
 const $ = id => document.getElementById(id);
 const show = id => $(id).classList.remove('hidden');
 const hide = id => $(id).classList.add('hidden');
+
+// ============================================================
+//  MOBILE ROTATE PROMPT
+//  On phones/tablets, the game is designed for landscape. When a
+//  mobile device is held in portrait, a full-screen overlay asks the
+//  player to rotate their device. The prompt disappears automatically
+//  (and the game takes over the whole screen) once it's rotated.
+// ============================================================
+const rotateOverlay = $('rotateOverlay');
+const hasTouchCoarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+const isMobileDevice = hasTouchCoarse || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
+function updateRotatePrompt() {
+  // Portrait (taller than wide) on a mobile device → show the prompt.
+  const portrait = window.innerHeight > window.innerWidth;
+  rotateOverlay.classList.toggle('show', isMobileDevice && portrait);
+}
+
+window.addEventListener('resize', updateRotatePrompt);
+window.addEventListener('orientationchange', updateRotatePrompt);
+updateRotatePrompt();
 
 // ============================================================
 //  AUDIO (procedural Web Audio)
