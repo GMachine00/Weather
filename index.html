@@ -97,14 +97,21 @@
   #filmStatus.good { color: var(--good); }
   #filmStatus.bad { color: var(--danger); }
 
-  /* Mobile styles (phones in portrait OR landscape): hide the desktop
-     WASD legend and the large bottom footage bar, and show the compact
-     footage indicator at the top. 900px catches phones in landscape
-     (e.g. iPhone ~812–896px wide) where the 600px query wouldn't fire. */
+  /* Mobile styles: hide the desktop WASD legend and the large
+     bottom footage bar on touch devices (reliable regardless of
+     screen width), and show the compact footage indicator at the
+     top-left below the HP bar so it doesn't overlap the EF indicator. */
+  .touch #filmPanel { display: none !important; }
+  .touch #hintPanel { display: none !important; }
+  .touch #filmMini { display: block; top: 70px; left: 14px; right: auto; transform: none; padding: 6px 12px; }
+  .touch #filmMini .hud-label { font-size: 0.6rem; margin-bottom: 2px; }
+  .touch #filmMini .bar-wrap { width: 90px; height: 8px; }
+
+  /* Also hide via media query for non-touch mobile devices (e.g. small tablets in landscape) */
   @media (max-width: 900px) {
     #filmPanel { display: none; }
     #hintPanel { display: none; }
-    #filmMini { display: block; top: 76px; left: 50%; transform: translateX(-50%); padding: 6px 12px; }
+    #filmMini { display: block; top: 70px; left: 14px; right: auto; transform: none; padding: 6px 12px; }
     #filmMini .hud-label { font-size: 0.6rem; margin-bottom: 2px; }
     #filmMini .bar-wrap { width: 90px; height: 8px; }
   }
