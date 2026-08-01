@@ -97,8 +97,17 @@
   #filmStatus.good { color: var(--good); }
   #filmStatus.bad { color: var(--danger); }
 
-  /* Compact footage indicator (mobile only; hidden on desktop) */
-  #filmMini { display: none; }
+  /* Mobile styles (phones in portrait OR landscape): hide the desktop
+     WASD legend and the large bottom footage bar, and show the compact
+     footage indicator at the top. 900px catches phones in landscape
+     (e.g. iPhone ~812–896px wide) where the 600px query wouldn't fire. */
+  @media (max-width: 900px) {
+    #filmPanel { display: none; }
+    #hintPanel { display: none; }
+    #filmMini { display: block; top: 76px; left: 50%; transform: translateX(-50%); padding: 6px 12px; }
+    #filmMini .hud-label { font-size: 0.6rem; margin-bottom: 2px; }
+    #filmMini .bar-wrap { width: 90px; height: 8px; }
+  }
 
   #hintPanel { bottom: 20px; right: 14px; font-size: 0.75rem; color: var(--text-dim); line-height: 1.6; text-align: right; }
   #hintPanel b { color: var(--accent); }
@@ -122,12 +131,6 @@
     .vehicle-card { width: 150px; padding: 14px 12px; }
     .vehicle-card .v-icon { font-size: 2rem; }
     .controls { font-size: 0.75rem; }
-    /* Remove the large footage panel from the bottom on phones;
-       show the compact footage meter at the top instead. */
-    #filmPanel { display: none; }
-    #filmMini { display: block; top: 76px; left: 50%; transform: translateX(-50%); padding: 6px 12px; }
-    #filmMini .hud-label { font-size: 0.6rem; margin-bottom: 2px; }
-    #filmMini .bar-wrap { width: 90px; height: 8px; }
     #selectScreen h1 { font-size: 1.4rem; }
     #gameOverTitle { font-size: 1.8rem; }
     #finalScore { font-size: 2.4rem; }
@@ -169,6 +172,11 @@
 
   .controls { color: var(--text-dim); font-size: 0.85rem; line-height: 1.8; margin-top: 10px; }
   .controls b { color: var(--accent); }
+  .controls-touch { display: none; }
+  @media (max-width: 900px) {
+    .controls-desktop { display: none; }
+    .controls-touch { display: block; }
+  }
 
   #gameOverTitle { font-size: 2.4rem; font-weight: 800; margin-bottom: 6px; }
   #finalScore { font-size: 3.2rem; font-weight: 800; color: var(--accent); margin: 10px 0 4px; }
@@ -242,7 +250,8 @@
   <div class="subtitle">Chase the storm. Dodge the debris. Get the money shot.</div>
   <button class="btn primary" id="btnStart">Start Chase</button>
   <div class="controls">
-    <b>WASD</b> / <b>Arrows</b> — Drive &nbsp;•&nbsp; <b>SPACE</b> — Film &nbsp;•&nbsp; <b>SHIFT</b> — Boost<br/>
+    <span class="controls-desktop"><b>WASD</b> / <b>Arrows</b> — Drive &nbsp;•&nbsp; <b>SPACE</b> — Film &nbsp;•&nbsp; <b>SHIFT</b> — Boost</span>
+    <span class="controls-touch">🎮 Left thumb — Drive • ⚡ Boost • 📹 Auto-film</span><br/>
     Get close to the tornado for the <b>money shot</b> — but don't get hit by debris!
   </div>
 </div>
@@ -345,6 +354,9 @@ const DEBRIS_TYPES = [
 // is invoked below — using typeof on a const in its temporal dead
 // zone throws a ReferenceError, which would crash the whole script.
 const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+// Flag the page for touch so CSS can hide the desktop-only HUD elements
+// (WASD legend, big bottom footage bar) on phones/tablets.
+if (isTouchDevice) document.documentElement.classList.add('touch');
 
 // Touch button layout state. These must exist before resize() calls
 // layoutTouchButtons() on mobile — otherwise assigning to the `let`
