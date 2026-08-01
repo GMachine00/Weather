@@ -101,6 +101,8 @@
     border: 1px solid var(--border); border-radius: 10px;
     padding: 12px 28px; font-size: 1rem; font-weight: 600;
     transition: all 0.15s; font-family: inherit;
+    touch-action: manipulation;          /* register taps instantly on mobile */
+    -webkit-tap-highlight-color: transparent;
   }
   .btn:hover { border-color: var(--accent); background: var(--bg-card-hover); transform: translateY(-2px); }
   .btn.primary { background: var(--accent); color: #04141f; border-color: var(--accent); }
@@ -111,6 +113,8 @@
     pointer-events: auto; cursor: pointer;
     background: var(--bg-card); border: 2px solid var(--border); border-radius: 14px;
     padding: 20px 18px; width: 190px; transition: all 0.15s;
+    touch-action: manipulation;          /* register taps instantly on mobile */
+    -webkit-tap-highlight-color: transparent;
   }
   .vehicle-card:hover { border-color: var(--accent); transform: translateY(-4px); }
   .vehicle-card.selected { border-color: var(--accent); background: var(--bg-card-hover); box-shadow: 0 0 0 3px rgba(56,189,248,0.2); }
@@ -287,6 +291,15 @@ const DEBRIS_TYPES = [
 // zone throws a ReferenceError, which would crash the whole script.
 const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 
+// Touch button layout state. These must exist before resize() calls
+// layoutTouchButtons() on mobile — otherwise assigning to the `let`
+// variables below would throw a ReferenceError in their temporal dead
+// zone and crash the script before the game ever starts.
+const TOUCH_BTN_SIZE = 70;
+const TOUCH_BTN_MARGIN = 24;
+let touchFilmBtn = { x: 0, y: 0 };   // bottom-right
+let touchBoostBtn = { x: 0, y: 0 };  // above film
+
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 let W = 0, H = 0;
@@ -415,10 +428,9 @@ let touchFilm = { active: false, id: null };
 let touchBoost = { active: false, id: null };
 
 // Button layout (screen space, right side)
-const TOUCH_BTN_SIZE = 70;
-const TOUCH_BTN_MARGIN = 24;
-let touchFilmBtn = { x: 0, y: 0 };   // bottom-right
-let touchBoostBtn = { x: 0, y: 0 };  // above film
+// (TOUCH_BTN_SIZE, TOUCH_BTN_MARGIN, touchFilmBtn, touchBoostBtn are
+//  declared earlier in the CANVAS SETUP section so resize() can use
+//  them on mobile without hitting a temporal dead zone.)
 
 function layoutTouchButtons() {
   touchFilmBtn.x = W - TOUCH_BTN_SIZE - TOUCH_BTN_MARGIN;
