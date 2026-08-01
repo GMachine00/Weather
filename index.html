@@ -153,6 +153,11 @@
     <b>SHIFT</b> — Boost<br/>
     <b>R</b> — Restart
   </div>
+  <div class="hud-panel hidden" id="hintPanelTouch">
+    <b>Left thumb</b> — Drive<br/>
+    <b>🎥</b> — Film<br/>
+    <b>⚡</b> — Boost
+  </div>
 </div>
 
 <!-- ===== TITLE SCREEN ===== -->
@@ -261,12 +266,18 @@ const DEBRIS_TYPES = [
 // ============================================================
 //  CANVAS SETUP
 // ============================================================
+// Detect touch devices early. This must be declared before resize()
+// is invoked below — using typeof on a const in its temporal dead
+// zone throws a ReferenceError, which would crash the whole script.
+const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 let W = 0, H = 0;
 function resize() {
   W = canvas.width = window.innerWidth;
   H = canvas.height = window.innerHeight;
+  if (isTouchDevice) layoutTouchButtons();
 }
 window.addEventListener('resize', resize);
 resize();
@@ -374,6 +385,119 @@ window.addEventListener('keydown', e => {
   if (e.code === 'KeyR' && state === 'playing') startGame(); // quick restart
 });
 window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+// ============================================================
+//  TOUCH CONTROLS (mobile)
+//  Detects touch devices and provides a virtual joystick plus
+//  on-screen Film & Boost buttons. Touch input is mapped into
+//  the `keys` object so the existing game logic works unchanged.
+// ============================================================
+
+// Touch state
+let touchJoystick = { active: false, id: null, baseX: 0, baseY: 0, dx: 0, dy: 0 };
+let touchFilm = { active: false, id: null };
+let touchBoost = { active: false, id: null };
+
+// Button layout (screen space, right side)
+const TOUCH_BTN_SIZE = 70;
+const TOUCH_BTN_MARGIN = 24;
+let touchFilmBtn = { x: 0, y: 0 };   // bottom-right
+let touchBoostBtn = { x: 0, y: 0 };  // above film
+
+function layoutTouchButtons() {
+  touchFilmBtn.x = W - TOUCH_BTN_SIZE - TOUCH_BTN_MARGIN;
+  touchFilmBtn.y = H - TOUCH_BTN_SIZE - TOUCH_BTN_MARGIN;
+  touchBoostBtn.x = W - TOUCH_BTN_SIZE - TOUCH_BTN_MARGIN;
+  touchBoostBtn.y = H - TOUCH_BTN_SIZE * 2 - TOUCH_BTN_MARGIN * 2;
+}
+
+function pointInRect(px, py, rx, ry, rw, rh) {
+  return px >= rx && px <= rx + rw && py >= ry && py <= ry + rh;
+}
+
+function handleTouchStart(e) {
+  e.preventDefault();
+  for (const touch of e.changedTouches) {
+    const x = touch.clientX, y = touch.clientY;
+    // Film button (right side)
+    if (pointInRect(x, y, touchFilmBtn.x, touchFilmBtn.y, TOUCH_BTN_SIZE, TOUCH_BTN_SIZE)) {
+      touchFilm.active = true;
+      touchFilm.id = touch.identifier;
+      keys['Space'] = true;
+      continue;
+    }
+    // Boost button (right side, above film)
+    if (pointInRect(x, y, touchBoostBtn.x, touchBoostBtn.y, TOUCH_BTN_SIZE, TOUCH_BTN_SIZE)) {
+      touchBoost.active = true;
+      touchBoost.id = touch.identifier;
+      keys['ShiftLeft'] = true;
+      continue;
+    }
+    // Joystick (left half of screen) — floating joystick
+    if (!touchJoystick.active && x < W * 0.5) {
+      touchJoystick.active = true;
+      touchJoystick.id = touch.identifier;
+      touchJoystick.baseX = x;
+      touchJoystick.baseY = y;
+      touchJoystick.dx = 0;
+      touchJoystick.dy = 0;
+    }
+  }
+}
+
+function handleTouchMove(e) {
+  e.preventDefault();
+  for (const touch of e.changedTouches) {
+    // Joystick drag
+    if (touchJoystick.active && touch.identifier === touchJoystick.id) {
+      const dx = touch.clientX - touchJoystick.baseX;
+      const dy = touch.clientY - touchJoystick.baseY;
+      const maxDist = 60;
+      const dist = Math.hypot(dx, dy);
+      const scale = dist > maxDist ? maxDist / dist : 1;
+      touchJoystick.dx = dx * scale;
+      touchJoystick.dy = dy * scale;
+      // Map joystick to movement keys (with a small deadzone)
+      const deadzone = 12;
+      keys['KeyW'] = touchJoystick.dy < -deadzone;
+      keys['KeyS'] = touchJoystick.dy > deadzone;
+      keys['KeyA'] = touchJoystick.dx < -deadzone;
+      keys['KeyD'] = touchJoystick.dx > deadzone;
+    }
+  }
+}
+
+function handleTouchEnd(e) {
+  e.preventDefault();
+  for (const touch of e.changedTouches) {
+    if (touchFilm.active && touch.identifier === touchFilm.id) {
+      touchFilm.active = false;
+      touchFilm.id = null;
+      keys['Space'] = false;
+    }
+    if (touchBoost.active && touch.identifier === touchBoost.id) {
+      touchBoost.active = false;
+      touchBoost.id = null;
+      keys['ShiftLeft'] = false;
+    }
+    if (touchJoystick.active && touch.identifier === touchJoystick.id) {
+      touchJoystick.active = false;
+      touchJoystick.id = null;
+      touchJoystick.dx = 0;
+      touchJoystick.dy = 0;
+      keys['KeyW'] = keys['KeyS'] = keys['KeyA'] = keys['KeyD'] = false;
+    }
+  }
+}
+
+if (isTouchDevice) {
+  canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+  canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+  canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+  canvas.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+  window.addEventListener('resize', layoutTouchButtons);
+  layoutTouchButtons();
+}
 
 // ============================================================
 //  GAME STATE
@@ -677,6 +801,9 @@ function startGame() {
   hide('selectScreen');
   hide('gameOverScreen');
   show('hud');
+  // Show the appropriate control hints for the input method
+  $('hintPanel').classList.toggle('hidden', isTouchDevice);
+  $('hintPanelTouch').classList.toggle('hidden', !isTouchDevice);
   updateHUD();
 }
 
@@ -928,6 +1055,9 @@ function render() {
   drawRain();
   drawFog();
 
+  // touch controls (mobile only)
+  drawTouchControls();
+
   // lightning flash overlay (full-screen white flash)
   if (flashAlpha > 0) {
     ctx.fillStyle = `rgba(255,255,255,${flashAlpha})`;
@@ -1131,6 +1261,56 @@ function drawParticles() {
     ctx.fill();
   }
   ctx.globalAlpha = 1;
+}
+
+// Draws the virtual joystick and on-screen buttons for touch devices.
+function drawTouchControls() {
+  if (!isTouchDevice) return;
+
+  // --- Joystick ---
+  if (touchJoystick.active) {
+    // base circle
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(touchJoystick.baseX, touchJoystick.baseY, 50, 0, Math.PI * 2);
+    ctx.stroke();
+    // knob
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.beginPath();
+    ctx.arc(touchJoystick.baseX + touchJoystick.dx, touchJoystick.baseY + touchJoystick.dy, 24, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    // hint joystick (bottom-left)
+    const hx = 90, hy = H - 90;
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(hx, hy, 50, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    ctx.beginPath();
+    ctx.arc(hx, hy, 24, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // --- Film & Boost buttons ---
+  drawTouchButton(touchFilmBtn.x, touchFilmBtn.y, '🎥', touchFilm.active);
+  drawTouchButton(touchBoostBtn.x, touchBoostBtn.y, '⚡', touchBoost.active);
+}
+
+function drawTouchButton(x, y, label, active) {
+  ctx.fillStyle = active ? 'rgba(56,189,248,0.5)' : 'rgba(255,255,255,0.15)';
+  ctx.strokeStyle = active ? 'rgba(56,189,248,0.9)' : 'rgba(255,255,255,0.4)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(x + TOUCH_BTN_SIZE / 2, y + TOUCH_BTN_SIZE / 2, TOUCH_BTN_SIZE / 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.font = '28px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(label, x + TOUCH_BTN_SIZE / 2, y + TOUCH_BTN_SIZE / 2);
 }
 
 // ============================================================
