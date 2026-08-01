@@ -72,6 +72,22 @@
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     background: radial-gradient(1200px 600px at 50% -10%, #172a4a 0%, var(--bg) 60%);
     text-align: center; padding: 20px;
+    overflow-y: auto; /* keep content reachable on short/touch screens */
+  }
+  /* Compact layout for phones so all screens fit without scrolling to find buttons */
+  @media (max-width: 600px) {
+    .screen { padding: 16px; justify-content: flex-start; }
+    .screen h1 { font-size: 1.8rem; }
+    .screen .big-icon { font-size: 2.6rem; margin-bottom: 4px; }
+    .screen .subtitle { font-size: 0.85rem; margin-bottom: 16px; }
+    .btn { padding: 10px 22px; font-size: 0.9rem; }
+    .vehicle-grid { gap: 10px; margin: 12px 0 18px; }
+    .vehicle-card { width: 150px; padding: 14px 12px; }
+    .vehicle-card .v-icon { font-size: 2rem; }
+    .controls { font-size: 0.75rem; }
+    #selectScreen h1 { font-size: 1.4rem; }
+    #gameOverTitle { font-size: 1.8rem; }
+    #finalScore { font-size: 2.4rem; }
   }
   .screen.hidden { display: none; }
   .screen h1 { font-size: 3rem; font-weight: 800; letter-spacing: 1px; margin-bottom: 4px; }
