@@ -97,6 +97,9 @@
   #filmStatus.good { color: var(--good); }
   #filmStatus.bad { color: var(--danger); }
 
+  /* Compact footage indicator (mobile only; hidden on desktop) */
+  #filmMini { display: none; }
+
   #hintPanel { bottom: 20px; right: 14px; font-size: 0.75rem; color: var(--text-dim); line-height: 1.6; text-align: right; }
   #hintPanel b { color: var(--accent); }
 
@@ -119,6 +122,12 @@
     .vehicle-card { width: 150px; padding: 14px 12px; }
     .vehicle-card .v-icon { font-size: 2rem; }
     .controls { font-size: 0.75rem; }
+    /* Remove the large footage panel from the bottom on phones;
+       show the compact footage meter at the top instead. */
+    #filmPanel { display: none; }
+    #filmMini { display: block; top: 76px; left: 50%; transform: translateX(-50%); padding: 6px 12px; }
+    #filmMini .hud-label { font-size: 0.6rem; margin-bottom: 2px; }
+    #filmMini .bar-wrap { width: 90px; height: 8px; }
     #selectScreen h1 { font-size: 1.4rem; }
     #gameOverTitle { font-size: 1.8rem; }
     #finalScore { font-size: 2.4rem; }
@@ -202,6 +211,11 @@
     <div id="stormTimer"></div>
   </div>
 
+  <div class="hud-panel" id="filmMini">
+    <div class="hud-label">📹</div>
+    <div class="bar-wrap"><div class="bar-fill" id="filmFillMini"></div></div>
+  </div>
+
   <div class="hud-panel" id="filmPanel">
     <div class="hud-label">📹 Footage</div>
     <div class="bar-wrap" id="filmBar"><div class="bar-fill" id="filmFill"></div></div>
@@ -215,9 +229,9 @@
     <b>R</b> — Restart
   </div>
   <div class="hud-panel hidden" id="hintPanelTouch">
-    <b>Left thumb</b> — Drive<br/>
-    <b>🎥</b> — Film<br/>
-    <b>⚡</b> — Boost
+    <b>Left thumb</b> — Drive (steers where you point)<br/>
+    <b>⚡</b> — Boost<br/>
+    📹 Filming is automatic
   </div>
 </div>
 
@@ -338,8 +352,7 @@ const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0
 // zone and crash the script before the game ever starts.
 const TOUCH_BTN_SIZE = 70;
 const TOUCH_BTN_MARGIN = 24;
-let touchFilmBtn = { x: 0, y: 0 };   // bottom-right
-let touchBoostBtn = { x: 0, y: 0 };  // above film
+let touchBoostBtn = { x: 0, y: 0 };  // bottom-right
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -486,7 +499,6 @@ window.addEventListener('keyup', e => { keys[e.code] = false; });
 
 // Touch state
 let touchJoystick = { active: false, id: null, baseX: 0, baseY: 0, dx: 0, dy: 0 };
-let touchFilm = { active: false, id: null };
 let touchBoost = { active: false, id: null };
 
 // Button layout (screen space, right side)
@@ -495,10 +507,10 @@ let touchBoost = { active: false, id: null };
 //  them on mobile without hitting a temporal dead zone.)
 
 function layoutTouchButtons() {
-  touchFilmBtn.x = W - TOUCH_BTN_SIZE - TOUCH_BTN_MARGIN;
-  touchFilmBtn.y = H - TOUCH_BTN_SIZE - TOUCH_BTN_MARGIN;
+  // Boost button (bottom-right). Filming is automatic on touch devices,
+  // so no Film button is needed/drawn.
   touchBoostBtn.x = W - TOUCH_BTN_SIZE - TOUCH_BTN_MARGIN;
-  touchBoostBtn.y = H - TOUCH_BTN_SIZE * 2 - TOUCH_BTN_MARGIN * 2;
+  touchBoostBtn.y = H - TOUCH_BTN_SIZE - TOUCH_BTN_MARGIN;
 }
 
 function pointInRect(px, py, rx, ry, rw, rh) {
@@ -509,14 +521,7 @@ function handleTouchStart(e) {
   e.preventDefault();
   for (const touch of e.changedTouches) {
     const x = touch.clientX, y = touch.clientY;
-    // Film button (right side)
-    if (pointInRect(x, y, touchFilmBtn.x, touchFilmBtn.y, TOUCH_BTN_SIZE, TOUCH_BTN_SIZE)) {
-      touchFilm.active = true;
-      touchFilm.id = touch.identifier;
-      keys['Space'] = true;
-      continue;
-    }
-    // Boost button (right side, above film)
+    // Boost button (bottom-right)
     if (pointInRect(x, y, touchBoostBtn.x, touchBoostBtn.y, TOUCH_BTN_SIZE, TOUCH_BTN_SIZE)) {
       touchBoost.active = true;
       touchBoost.id = touch.identifier;
@@ -547,12 +552,8 @@ function handleTouchMove(e) {
       const scale = dist > maxDist ? maxDist / dist : 1;
       touchJoystick.dx = dx * scale;
       touchJoystick.dy = dy * scale;
-      // Map joystick to movement keys (with a small deadzone)
-      const deadzone = 12;
-      keys['KeyW'] = touchJoystick.dy < -deadzone;
-      keys['KeyS'] = touchJoystick.dy > deadzone;
-      keys['KeyA'] = touchJoystick.dx < -deadzone;
-      keys['KeyD'] = touchJoystick.dx > deadzone;
+      // The joystick vector is read directly in update() to steer
+      // and drive the car exactly toward the direction it points.
     }
   }
 }
@@ -560,11 +561,6 @@ function handleTouchMove(e) {
 function handleTouchEnd(e) {
   e.preventDefault();
   for (const touch of e.changedTouches) {
-    if (touchFilm.active && touch.identifier === touchFilm.id) {
-      touchFilm.active = false;
-      touchFilm.id = null;
-      keys['Space'] = false;
-    }
     if (touchBoost.active && touch.identifier === touchBoost.id) {
       touchBoost.active = false;
       touchBoost.id = null;
@@ -575,7 +571,6 @@ function handleTouchEnd(e) {
       touchJoystick.id = null;
       touchJoystick.dx = 0;
       touchJoystick.dy = 0;
-      keys['KeyW'] = keys['KeyS'] = keys['KeyA'] = keys['KeyD'] = false;
     }
   }
 }
@@ -948,10 +943,26 @@ function update(dt) {
   // Read keyboard input and apply acceleration / steering.
   const p = player;
   let accel = 0, turn = 0;
-  if (keys['KeyW'] || keys['ArrowUp']) accel += 1;
-  if (keys['KeyS'] || keys['ArrowDown']) accel -= 0.6;
-  if (keys['KeyA'] || keys['ArrowLeft']) turn -= 1;
-  if (keys['KeyD'] || keys['ArrowRight']) turn += 1;
+
+  // Mobile joystick: drive exactly toward where the stick points.
+  // The joystick vector sets the target heading and the car accelerates
+  // forward along it (no separate up=gas / down=brake; the stick is
+  // always "forward" toward wherever the player is pointing).
+  const joyActive = touchJoystick.active && Math.hypot(touchJoystick.dx, touchJoystick.dy) > 12;
+  if (joyActive) {
+    const targetAngle = Math.atan2(touchJoystick.dy, touchJoystick.dx);
+    let diff = targetAngle - p.angle;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    turn += Math.max(-1, Math.min(1, diff * 4));
+    accel += 1;
+  } else {
+    // Keyboard controls (desktop)
+    if (keys['KeyW'] || keys['ArrowUp']) accel += 1;
+    if (keys['KeyS'] || keys['ArrowDown']) accel -= 0.6;
+    if (keys['KeyA'] || keys['ArrowLeft']) turn -= 1;
+    if (keys['KeyD'] || keys['ArrowRight']) turn += 1;
+  }
   if (keys['ShiftLeft'] || keys['ShiftRight']) p.boost = 1.5; else p.boost = 1;
 
   p.angle += turn * p.handling * dt;
@@ -1045,11 +1056,13 @@ function update(dt) {
   // --- Filming mechanic ---
   // Hold SPACE while within the filming band to capture footage.
   // Being closer to the sweet spot gives higher quality footage & score.
-  const filming = keys['Space'];
   const zone = filmZone();
   const inBand = tdist >= zone.min && tdist <= zone.max;
   const sweetDist = Math.abs(tdist - zone.sweet);
   const quality = Math.max(0.2, 1 - sweetDist / (zone.max - zone.min));
+  // On touch devices filming is automatic: the camera rolls whenever
+  // the player is inside the money-shot band. On desktop, hold SPACE.
+  const filming = isTouchDevice ? inBand : keys['Space'];
 
   if (filming && inBand) {
     filmActive = true;
@@ -1384,8 +1397,7 @@ function drawTouchControls() {
     ctx.fill();
   }
 
-  // --- Film & Boost buttons ---
-  drawTouchButton(touchFilmBtn.x, touchFilmBtn.y, '🎥', touchFilm.active);
+  // --- Boost button (film is automatic on touch) ---
   drawTouchButton(touchBoostBtn.x, touchBoostBtn.y, '⚡', touchBoost.active);
 }
 
@@ -1417,6 +1429,7 @@ function updateHUD() {
   $('efVal').textContent = EF_LEVELS[stormLevel].name;
   $('stormTimer').textContent = `Next: ${Math.max(0, 25 - (stormTime % 25)).toFixed(0)}s`;
   $('filmFill').style.width = footage + '%';
+  $('filmFillMini').style.width = footage + '%';
 
   // Show contextual guidance based on the player's distance to the tornado.
   const status = $('filmStatus');
@@ -1425,7 +1438,7 @@ function updateHUD() {
   if (moneyShotTimer > 0) {
     status.textContent = '💵 MONEY SHOT! +5000';
     status.className = 'good';
-  } else if (keys['Space'] && tdist >= zone.min && tdist <= zone.max) {
+  } else if ((isTouchDevice || keys['Space']) && tdist >= zone.min && tdist <= zone.max) {
     status.textContent = '🎥 FILMING — Money Shot!';
     status.className = 'good';
   } else if (tdist < zone.min) {
@@ -1435,7 +1448,7 @@ function updateHUD() {
     status.textContent = 'Get closer to the tornado...';
     status.className = '';
   } else {
-    status.textContent = 'Hold SPACE to film';
+    status.textContent = isTouchDevice ? 'Stay in range to film' : 'Hold SPACE to film';
     status.className = '';
   }
 }
