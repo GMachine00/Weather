@@ -193,6 +193,20 @@
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 
   .flash { position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 5; }
+
+  /* Version tag shown on the title screen and mobile rotate prompt */
+  .version-tag {
+    position: absolute;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    opacity: 0.65;
+    letter-spacing: 0.4px;
+    pointer-events: none;
+    white-space: nowrap;
+  }
 </style>
 </head>
 <body>
@@ -205,6 +219,7 @@
   <div class="rotate-icon">📱↻</div>
   <h2>Turn Your Phone <span>Sideways</span></h2>
   <p>Tornado Alley is best played in landscape mode. Please rotate your device 90° to start the chase. 🌪️</p>
+  <div class="version-tag" id="rotateVersion"></div>
 </div>
 
 <!-- ===== HUD ===== -->
@@ -261,6 +276,7 @@
     <span class="controls-touch">🎮 Left thumb — Drive • ⚡ Boost • 📹 Auto-film</span><br/>
     Get close to the tornado for the <b>money shot</b> — but don't get hit by debris!
   </div>
+  <div class="version-tag" id="titleVersion"></div>
 </div>
 
 <!-- ===== VEHICLE SELECT ===== -->
@@ -293,6 +309,11 @@
 //  All tunable gameplay constants live here so the game can be
 //  easily balanced without hunting through the logic below.
 // ============================================================
+
+// Game version — shown on the title screen and rotate prompt so
+// players can confirm they're running the latest build. Bump this
+// (and update the changelog in README.md) with each release.
+const GAME_VERSION = '1.1.0';
 
 // World dimensions (in world units) and road grid spacing.
 const WORLD_W = 4000;
@@ -1554,6 +1575,9 @@ function loop(t) {
 //  Builds the UI and starts the main game loop.
 // ============================================================
 buildVehicleGrid();
+// Stamp the version number onto the title and rotate screens.
+$('titleVersion').textContent = `v${GAME_VERSION}`;
+$('rotateVersion').textContent = `v${GAME_VERSION}`;
 requestAnimationFrame(loop);
 </script>
 </body>
