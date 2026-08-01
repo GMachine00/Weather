@@ -149,6 +149,14 @@ Weather/
 
 ## 📜 Version History
 
+### v1.1.1
+- Fixed mobile browser bottom toolbar ("blue footer") overlapping the game canvas and joystick controls.
+- Canvas now sizes to the real visible viewport via the `visualViewport` API (with `window.innerWidth/innerHeight` fallback) and listens for `visualViewport` resize/scroll events so it adapts when the mobile browser UI shows/hides.
+- Added `theme-color` meta tag so the browser chrome blends with the game's dark background.
+- Locked the page (`position: fixed`, `overscroll-behavior: none`, `touch-action: none`) to prevent scroll/bounce from revealing browser toolbars.
+- Added `env(safe-area-inset-*)` padding and CSS variables so touch controls (boost button) stay clear of notches, home indicators, and browser bars.
+- Added a `@media (pointer: coarse)` fallback to hide desktop-only HUD on touch devices the JS flag might miss.
+
 ### v1.1.0
 - Added on-screen version number display to the title screen and mobile rotate prompt.
 - Added this README with full feature documentation and changelog.
